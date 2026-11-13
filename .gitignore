@@ -1,0 +1,14 @@
+# Maven derleme çıktıları
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA ayar dosyaları
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Hassas yapılandırma dosyaları (3 servis için)
+**/src/main/resources/application.yml
+**/src/main/resources/application-*.yml
+.env
