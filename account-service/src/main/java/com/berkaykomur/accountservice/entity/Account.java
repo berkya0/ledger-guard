@@ -15,6 +15,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "accounts")
 @Getter
+@Setter
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -30,7 +31,8 @@ public class Account {
     private String ownerName;
 
     @Column(name = "balance", nullable = false, precision = 19, scale = 4)
-    private BigDecimal balance;
+    @Builder.Default
+    private BigDecimal balance=BigDecimal.ZERO;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
