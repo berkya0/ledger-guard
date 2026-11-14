@@ -97,6 +97,9 @@ public class GlobalExceptionHandler {
         if (e instanceof SameAccountTransferException) {
             return HttpStatus.BAD_REQUEST;
         }
+        if (e instanceof AccountAlreadyDeactivatedException) {
+            return HttpStatus.BAD_REQUEST;
+        }
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 }

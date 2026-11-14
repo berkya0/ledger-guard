@@ -27,6 +27,9 @@ public class Account {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
+    @Column(nullable = false)
+    private boolean isActive = true;
+
     @Column(name = "owner_name", nullable = false, length = 100)
     private String ownerName;
 

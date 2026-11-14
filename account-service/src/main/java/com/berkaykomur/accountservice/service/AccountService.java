@@ -5,6 +5,7 @@ import com.berkaykomur.accountservice.dto.AccountResponse;
 import com.berkaykomur.accountservice.dto.TransferRequest;
 import com.berkaykomur.accountservice.entity.Account;
 import com.berkaykomur.accountservice.entity.ProcessedTransfer;
+import com.berkaykomur.accountservice.exception.AccountAlreadyDeactivatedException;
 import com.berkaykomur.accountservice.exception.AccountNotFoundException;
 import com.berkaykomur.accountservice.exception.SameAccountTransferException;
 import com.berkaykomur.accountservice.mapper.AccountMapper;
@@ -39,7 +40,7 @@ public class AccountService {
 
     public AccountResponse getAccountById(UUID accountId) {
         log.info("Fetching account with ID: {}", accountId);
-        return accountRepository.findById(accountId)
+        return accountRepository.findByIdAndIsActiveTrue(accountId)
                 .map(accountMapper::toResponse)
                 .orElseThrow(() -> new AccountNotFoundException("Account not found with ID: " + accountId));
     }
@@ -47,15 +48,25 @@ public class AccountService {
     @Transactional(readOnly = true)
     public Page<AccountResponse> getAllAccounts(Pageable pageable) {
         log.info("Fetching accounts - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
-        return accountRepository.findAll(pageable)
+        return accountRepository.findAllByIsActiveTrue(pageable)
                 .map(accountMapper::toResponse);
     }
 
+    @Transactional
     public void deleteAccount(UUID accountId) {
-        log.info("Deleting account with ID: {}", accountId);
-        Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException("Account not found with ID: " + accountId));
-        accountRepository.delete(account);
+        log.info("Deactivating account with ID: {}", accountId);
+
+        Account account = accountRepository.findByIdAndIsActiveTrue(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(
+                        "Account not found with ID: " + accountId));
+
+        if (!account.isActive()) {
+            throw new AccountAlreadyDeactivatedException(
+                    "Account is already deactivated: " + accountId);
+        }
+
+        account.setActive(false);
+        accountRepository.save(account);
     }
 
 
@@ -75,9 +86,9 @@ public class AccountService {
         log.info("Applying transfer {} from {} to {} of amount {}",
                 request.transferId(), request.senderAccountId(), request.receiverAccountId(), request.amount());
 
-        Account senderAccount = accountRepository.findById(request.senderAccountId())
+        Account senderAccount = accountRepository.findByIdAndIsActiveTrue(request.senderAccountId())
                 .orElseThrow(() -> new AccountNotFoundException("Sender account not found with ID: " + request.senderAccountId()));
-        Account receiverAccount = accountRepository.findById(request.receiverAccountId())
+        Account receiverAccount = accountRepository.findByIdAndIsActiveTrue(request.receiverAccountId())
                 .orElseThrow(() -> new AccountNotFoundException("Receiver account not found with ID: " + request.receiverAccountId()));
 
         senderAccount.debit(request.amount());

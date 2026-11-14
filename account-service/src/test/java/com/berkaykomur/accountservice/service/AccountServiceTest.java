@@ -5,6 +5,7 @@ import com.berkaykomur.accountservice.dto.AccountResponse;
 import com.berkaykomur.accountservice.dto.TransferRequest;
 import com.berkaykomur.accountservice.entity.Account;
 import com.berkaykomur.accountservice.entity.ProcessedTransfer;
+import com.berkaykomur.accountservice.exception.AccountAlreadyDeactivatedException;
 import com.berkaykomur.accountservice.exception.AccountNotFoundException;
 import com.berkaykomur.accountservice.exception.InsufficientBalanceException;
 import com.berkaykomur.accountservice.exception.SameAccountTransferException;
@@ -73,18 +74,18 @@ class AccountServiceTest {
         Account account = account(accountId, "Alice", BigDecimal.TEN);
         AccountResponse response = response(account);
 
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(accountRepository.findByIdAndIsActiveTrue(accountId)).thenReturn(Optional.of(account));
         when(accountMapper.toResponse(account)).thenReturn(response);
 
         assertThat(accountService.getAccountById(accountId)).isSameAs(response);
-        verify(accountRepository).findById(accountId);
+        verify(accountRepository).findByIdAndIsActiveTrue(accountId);
         verify(accountMapper).toResponse(account);
     }
 
     @Test
     void getAccountById_throwsWhenAccountDoesNotExist() {
         UUID accountId = UUID.randomUUID();
-        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
+        when(accountRepository.findByIdAndIsActiveTrue(accountId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountService.getAccountById(accountId))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -101,7 +102,7 @@ class AccountServiceTest {
         AccountResponse secondResponse = response(second);
         Page<Account> accounts = new PageImpl<>(List.of(first, second), pageable, 5);
 
-        when(accountRepository.findAll(pageable)).thenReturn(accounts);
+        when(accountRepository.findAllByIsActiveTrue(pageable)).thenReturn(accounts);
         when(accountMapper.toResponse(first)).thenReturn(firstResponse);
         when(accountMapper.toResponse(second)).thenReturn(secondResponse);
 
@@ -114,24 +115,43 @@ class AccountServiceTest {
     }
 
     @Test
-    void deleteAccount_deletesExistingAccount() {
+    void deleteAccount_deactivatesExistingAccount() {
         UUID accountId = UUID.randomUUID();
         Account account = account(accountId, "Alice", BigDecimal.ZERO);
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        account.setActive(true);
+        when(accountRepository.findByIdAndIsActiveTrue(accountId)).thenReturn(Optional.of(account));
 
         accountService.deleteAccount(accountId);
 
-        verify(accountRepository).delete(account);
+        assertThat(account.isActive()).isFalse();
+        verify(accountRepository).save(account);
+        verify(accountRepository, never()).delete(any(Account.class));
     }
 
     @Test
     void deleteAccount_throwsAndDoesNotDeleteWhenAccountDoesNotExist() {
         UUID accountId = UUID.randomUUID();
-        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
+        when(accountRepository.findByIdAndIsActiveTrue(accountId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountService.deleteAccount(accountId))
                 .isInstanceOf(AccountNotFoundException.class);
 
+        verify(accountRepository, never()).save(any(Account.class));
+        verify(accountRepository, never()).delete(any(Account.class));
+    }
+
+    @Test
+    void deleteAccount_throwsWhenAccountIsAlreadyDeactivated() {
+        UUID accountId = UUID.randomUUID();
+        Account account = account(accountId, "Alice", BigDecimal.ZERO);
+        account.setActive(false);
+        when(accountRepository.findByIdAndIsActiveTrue(accountId)).thenReturn(Optional.of(account));
+
+        assertThatThrownBy(() -> accountService.deleteAccount(accountId))
+                .isInstanceOf(AccountAlreadyDeactivatedException.class);
+
+        assertThat(account.isActive()).isFalse();
+        verify(accountRepository, never()).save(any(Account.class));
         verify(accountRepository, never()).delete(any(Account.class));
     }
 
@@ -147,8 +167,8 @@ class AccountServiceTest {
         AccountResponse response = response(sender);
 
         when(processedTransferRepository.existsById(transferId)).thenReturn(false);
-        when(accountRepository.findById(senderId)).thenReturn(Optional.of(sender));
-        when(accountRepository.findById(receiverId)).thenReturn(Optional.of(receiver));
+        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdAndIsActiveTrue(receiverId)).thenReturn(Optional.of(receiver));
         when(accountMapper.toResponse(sender)).thenReturn(response);
 
         assertThat(accountService.applyTransfer(request)).isSameAs(response);
@@ -173,12 +193,12 @@ class AccountServiceTest {
         AccountResponse response = response(sender);
 
         when(processedTransferRepository.existsById(transferId)).thenReturn(true);
-        when(accountRepository.findById(senderId)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.of(sender));
         when(accountMapper.toResponse(sender)).thenReturn(response);
 
         assertThat(accountService.applyTransfer(request)).isSameAs(response);
 
-        verify(accountRepository, never()).findById(receiverId);
+        verify(accountRepository, never()).findByIdAndIsActiveTrue(receiverId);
 
         verify(accountRepository, never()).save(any(Account.class));
         verify(processedTransferRepository, never()).save(any(ProcessedTransfer.class));
@@ -190,9 +210,9 @@ class AccountServiceTest {
         UUID senderId = UUID.randomUUID();
         TransferRequest request = new TransferRequest(
                 transferId, senderId, UUID.randomUUID(), BigDecimal.TEN);
-
+        Account sender = account(senderId, "Alice", BigDecimal.ONE);
         when(processedTransferRepository.existsById(transferId)).thenReturn(true);
-        when(accountRepository.findById(senderId)).thenReturn(Optional.empty());
+        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountService.applyTransfer(request))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -213,7 +233,7 @@ class AccountServiceTest {
         assertThatThrownBy(() -> accountService.applyTransfer(request))
                 .isInstanceOf(SameAccountTransferException.class);
 
-        verify(accountRepository, never()).findById(any(UUID.class));
+        verify(accountRepository, never()).findByIdAndIsActiveTrue(any(UUID.class));
         verify(accountRepository, never()).save(any(Account.class));
         verify(processedTransferRepository, never()).save(any(ProcessedTransfer.class));
     }
@@ -224,7 +244,7 @@ class AccountServiceTest {
         TransferRequest request = new TransferRequest(
                 UUID.randomUUID(), senderId, UUID.randomUUID(), BigDecimal.TEN);
         when(processedTransferRepository.existsById(request.transferId())).thenReturn(false);
-        when(accountRepository.findById(senderId)).thenReturn(Optional.empty());
+        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountService.applyTransfer(request))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -241,8 +261,8 @@ class AccountServiceTest {
         TransferRequest request = new TransferRequest(
                 UUID.randomUUID(), senderId, receiverId, BigDecimal.ONE);
         when(processedTransferRepository.existsById(request.transferId())).thenReturn(false);
-        when(accountRepository.findById(senderId)).thenReturn(Optional.of(sender));
-        when(accountRepository.findById(receiverId)).thenReturn(Optional.empty());
+        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdAndIsActiveTrue(receiverId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountService.applyTransfer(request))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -260,8 +280,8 @@ class AccountServiceTest {
         TransferRequest request = new TransferRequest(transferId, senderId, receiverId, BigDecimal.TEN);
 
         when(processedTransferRepository.existsById(transferId)).thenReturn(false);
-        when(accountRepository.findById(senderId)).thenReturn(Optional.of(sender));
-        when(accountRepository.findById(receiverId)).thenReturn(Optional.of(receiver));
+        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdAndIsActiveTrue(receiverId)).thenReturn(Optional.of(receiver));
 
         assertThatThrownBy(() -> accountService.applyTransfer(request))
                 .isInstanceOf(InsufficientBalanceException.class);
