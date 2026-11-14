@@ -91,6 +91,12 @@ public class GlobalExceptionHandler {
         if (e instanceof InvalidTransferAmountException) {
             return HttpStatus.BAD_REQUEST;
         }
+        if (e instanceof AccountNotFoundException) {
+            return HttpStatus.NOT_FOUND;
+        }
+        if (e instanceof SameAccountTransferException) {
+            return HttpStatus.BAD_REQUEST;
+        }
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 }
