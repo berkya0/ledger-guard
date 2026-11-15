@@ -71,12 +71,10 @@ public class AccountService {
 
 
     @Transactional
-    public AccountResponse applyTransfer(TransferRequest request) {
-        if (processedTransferRepository.existsById(request.transferId())) { //tekrar eden kayıtları önleme stratejisi
+    public void applyTransfer(TransferRequest request) {
+        if (processedTransferRepository.existsById(request.transferId())) {
             log.warn("Transfer with ID {} has already been processed. Skipping duplicate event.", request.transferId());
-            Account existingSender = accountRepository.findById(request.senderAccountId())
-                    .orElseThrow(() -> new AccountNotFoundException("Sender account not found with ID: " + request.senderAccountId()));
-            return accountMapper.toResponse(existingSender);
+            return;
         }
 
         if (request.senderAccountId().equals(request.receiverAccountId())) {
@@ -98,8 +96,6 @@ public class AccountService {
         accountRepository.save(receiverAccount);
 
         processedTransferRepository.save(new ProcessedTransfer(request.transferId(), Instant.now()));
-
-        return accountMapper.toResponse(senderAccount);
     }
 
 

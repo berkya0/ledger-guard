@@ -156,7 +156,7 @@ class AccountServiceTest {
     }
 
     @Test
-    void applyTransfer_debitsCreditsPersistsTransferAndReturnsSender() {
+    void applyTransfer_debitsCreditsAndPersistsTransfer() {
         UUID transferId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
         UUID receiverId = UUID.randomUUID();
@@ -164,14 +164,12 @@ class AccountServiceTest {
         TransferRequest request = new TransferRequest(transferId, senderId, receiverId, amount);
         Account sender = account(senderId, "Alice", new BigDecimal("100.00"));
         Account receiver = account(receiverId, "Bob", new BigDecimal("10.00"));
-        AccountResponse response = response(sender);
 
         when(processedTransferRepository.existsById(transferId)).thenReturn(false);
         when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.of(sender));
         when(accountRepository.findByIdAndIsActiveTrue(receiverId)).thenReturn(Optional.of(receiver));
-        when(accountMapper.toResponse(sender)).thenReturn(response);
 
-        assertThat(accountService.applyTransfer(request)).isSameAs(response);
+        accountService.applyTransfer(request);
 
         assertThat(sender.getBalance()).isEqualByComparingTo("74.50");
         assertThat(receiver.getBalance()).isEqualByComparingTo("35.50");
@@ -184,20 +182,17 @@ class AccountServiceTest {
     }
 
     @Test
-    void applyTransfer_duplicateTransferReturnsCurrentSenderWithoutApplyingAgain() {
+    void applyTransfer_duplicateTransferSkipsApplyingAgain() {
         UUID transferId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
         UUID receiverId = UUID.randomUUID();
         TransferRequest request = new TransferRequest(transferId, senderId, receiverId, BigDecimal.TEN);
-        Account sender = account(senderId, "Alice", BigDecimal.ONE);
-        AccountResponse response = response(sender);
 
         when(processedTransferRepository.existsById(transferId)).thenReturn(true);
-        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.of(sender));
-        when(accountMapper.toResponse(sender)).thenReturn(response);
 
-        assertThat(accountService.applyTransfer(request)).isSameAs(response);
+        accountService.applyTransfer(request);
 
+        verify(accountRepository, never()).findByIdAndIsActiveTrue(senderId);
         verify(accountRepository, never()).findByIdAndIsActiveTrue(receiverId);
 
         verify(accountRepository, never()).save(any(Account.class));
@@ -205,19 +200,17 @@ class AccountServiceTest {
     }
 
     @Test
-    void applyTransfer_duplicateTransferThrowsWhenSenderDoesNotExist() {
+    void applyTransfer_duplicateTransferSkipsWhenAccountsDoNotExist() {
         UUID transferId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
         TransferRequest request = new TransferRequest(
                 transferId, senderId, UUID.randomUUID(), BigDecimal.TEN);
-        Account sender = account(senderId, "Alice", BigDecimal.ONE);
         when(processedTransferRepository.existsById(transferId)).thenReturn(true);
-        when(accountRepository.findByIdAndIsActiveTrue(senderId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> accountService.applyTransfer(request))
-                .isInstanceOf(AccountNotFoundException.class);
+        accountService.applyTransfer(request);
 
         verify(accountMapper, never()).toResponse(any(Account.class));
+        verify(accountRepository, never()).findByIdAndIsActiveTrue(any(UUID.class));
         verify(accountRepository, never()).save(any(Account.class));
         verify(processedTransferRepository, never()).save(any(ProcessedTransfer.class));
 
