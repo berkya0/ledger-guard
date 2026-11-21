@@ -14,7 +14,7 @@ public class ApiError {
 
     private final int status;
     private final String message;
-    private final String error;
+    private final String errorCode;
     @Builder.Default
     private final Instant timestamp = Instant.now();
     private final String path;

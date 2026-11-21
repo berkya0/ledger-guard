@@ -14,7 +14,10 @@ public class TransferEventConsumer {
 
     private final AccountService accountService;
 
-    @RabbitListener(queues = "${rabbitmq.queue.transfer-initiated}")
+    @RabbitListener(
+            queues = "${rabbitmq.queue.transfer-initiated}",
+            errorHandler = "transferErrorHandler"
+    )
     public void handleTransferInitiated(TransferRequest request) {
         log.info("Received transfer initiated event: transferId={}, senderAccountId={}, receiverAccountId={}, amount={}",
                 request.transferId(),

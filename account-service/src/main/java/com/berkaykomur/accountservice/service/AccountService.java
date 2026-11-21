@@ -3,12 +3,14 @@ package com.berkaykomur.accountservice.service;
 import com.berkaykomur.accountservice.dto.AccountRequest;
 import com.berkaykomur.accountservice.dto.AccountResponse;
 import com.berkaykomur.accountservice.dto.TransferRequest;
+import com.berkaykomur.accountservice.dto.TransferResultEvent;
 import com.berkaykomur.accountservice.entity.Account;
 import com.berkaykomur.accountservice.entity.ProcessedTransfer;
 import com.berkaykomur.accountservice.exception.AccountAlreadyDeactivatedException;
 import com.berkaykomur.accountservice.exception.AccountNotFoundException;
 import com.berkaykomur.accountservice.exception.SameAccountTransferException;
 import com.berkaykomur.accountservice.mapper.AccountMapper;
+import com.berkaykomur.accountservice.producer.TransferEventProducer;
 import com.berkaykomur.accountservice.repository.AccountRepository;
 import com.berkaykomur.accountservice.repository.ProcessedTransferRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,12 +31,13 @@ public class AccountService {
     private final AccountMapper accountMapper;
     private final AccountRepository accountRepository;
     private final ProcessedTransferRepository processedTransferRepository;
+    private final TransferEventProducer transferEventProducer;
 
     @Transactional
     public AccountResponse createAccount(AccountRequest request) {
-        log.info("Creating account for owner: {}", request.ownerName());
+        log.info("Creating account for owner: {} balance: {}", request.ownerName(), request.balance());
         Account newAccount =accountMapper.toEntity(request);
-        Account savedAccount = accountRepository.save(newAccount);
+        Account savedAccount = accountRepository.saveAndFlush(newAccount);
         return accountMapper.toResponse(savedAccount);
     }
 
@@ -69,7 +72,6 @@ public class AccountService {
         accountRepository.save(account);
     }
 
-
     @Transactional
     public void applyTransfer(TransferRequest request) {
         if (processedTransferRepository.existsById(request.transferId())) {
@@ -96,7 +98,7 @@ public class AccountService {
         accountRepository.save(receiverAccount);
 
         processedTransferRepository.save(new ProcessedTransfer(request.transferId(), Instant.now()));
+        transferEventProducer.publishTransferResult(TransferResultEvent.completed(request.transferId()));
     }
-
 
 }

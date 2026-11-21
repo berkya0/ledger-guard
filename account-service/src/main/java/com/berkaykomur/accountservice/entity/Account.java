@@ -4,8 +4,8 @@ import com.berkaykomur.accountservice.exception.InsufficientBalanceException;
 import com.berkaykomur.accountservice.exception.InvalidTransferAmountException;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
@@ -27,6 +27,7 @@ public class Account {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean isActive = true;
 
@@ -37,11 +38,11 @@ public class Account {
     @Builder.Default
     private BigDecimal balance=BigDecimal.ZERO;
 
-    @CreatedDate
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @LastModifiedDate
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 

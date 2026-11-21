@@ -23,7 +23,7 @@ public class GlobalExceptionHandler {
         log.warn("Business rule violation [{}]: {} | Path: {}", e.getErrorCode(), e.getMessage(), request.getRequestURI());
 
         ApiError apiError = ApiError.builder()
-                .error(e.getErrorCode())
+                .errorCode(e.getErrorCode())
                 .status(status.value())
                 .path(request.getRequestURI())
                 .message(e.getMessage())
@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
         log.warn("Optimistic lock conflict occurred | Path: {}", request.getRequestURI());
 
         ApiError apiError = ApiError.builder()
-                .error("OPTIMISTIC_LOCK_CONFLICT")
+                .errorCode("OPTIMISTIC_LOCK_CONFLICT")
                 .status(HttpStatus.CONFLICT.value())
                 .path(request.getRequestURI())
                 .message("Account record was updated by another transaction. Please retry.")
@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
         log.warn("Validation failed | Path: {}", request.getRequestURI());
 
         ApiError apiError = ApiError.builder()
-                .error("VALIDATION_FAILED")
+                .errorCode("VALIDATION_FAILED")
                 .status(HttpStatus.BAD_REQUEST.value())
                 .path(request.getRequestURI())
                 .message("Validation errors occurred.")
@@ -74,7 +74,7 @@ public class GlobalExceptionHandler {
         log.error("Unexpected system error | Path: {}", request.getRequestURI(), e);
 
         ApiError apiError = ApiError.builder()
-                .error("INTERNAL_SERVER_ERROR")
+                .errorCode("INTERNAL_SERVER_ERROR")
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .path(request.getRequestURI())
                 .message("An unexpected error occurred.")

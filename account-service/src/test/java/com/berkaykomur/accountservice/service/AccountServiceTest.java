@@ -52,7 +52,7 @@ class AccountServiceTest {
 
     @Test
     void createAccount_mapsSavesAndReturnsAccount() {
-        AccountRequest request = new AccountRequest("Alice");
+        AccountRequest request = new AccountRequest("Alice", BigDecimal.ZERO);
         Account account = account("Alice", BigDecimal.ZERO);
         Account savedAccount = account("Alice", BigDecimal.ZERO);
         AccountResponse response = response(savedAccount);
