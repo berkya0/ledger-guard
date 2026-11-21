@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 @RequiredArgsConstructor
@@ -19,6 +21,11 @@ public class TransferEventProducer {
 
     @Value("${rabbitmq.routing-key.transfer-result}")
     private String transferResultRoutingKey;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTransferResultEvent(TransferResultEvent event) {
+        publishTransferResult(event);
+    }
 
     public void publishTransferResult(TransferResultEvent event) {
         log.info("Publishing transfer result: transferId={}, success={}, reason={}",

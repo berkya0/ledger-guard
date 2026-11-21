@@ -8,10 +8,10 @@ import com.berkaykomur.transferservice.entity.Transfer;
 import com.berkaykomur.transferservice.entity.TransferStatus;
 import com.berkaykomur.transferservice.exception.SameAccountTransferException;
 import com.berkaykomur.transferservice.exception.TransferNotFoundException;
-import com.berkaykomur.transferservice.producer.TransferEventProducer;
 import com.berkaykomur.transferservice.repository.TransferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ import java.util.UUID;
 public class TransferService {
 
     private final TransferRepository transferRepository;
-    private final TransferEventProducer transferEventProducer;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TransferResponse initiateTransfer(CreateTransferRequest request) {
@@ -48,8 +48,8 @@ public class TransferService {
                 savedTransfer.getAmount()
         );
 
-        transferEventProducer.publishTransferInitiated(event);
-
+        eventPublisher.publishEvent(event);
+        log.info("Published TransferInitiatedEvent: transferId={}", savedTransfer.getId());
         return mapToResponse(savedTransfer);
     }
     @Transactional

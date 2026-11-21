@@ -10,11 +10,11 @@ import com.berkaykomur.accountservice.exception.AccountAlreadyDeactivatedExcepti
 import com.berkaykomur.accountservice.exception.AccountNotFoundException;
 import com.berkaykomur.accountservice.exception.SameAccountTransferException;
 import com.berkaykomur.accountservice.mapper.AccountMapper;
-import com.berkaykomur.accountservice.producer.TransferEventProducer;
 import com.berkaykomur.accountservice.repository.AccountRepository;
 import com.berkaykomur.accountservice.repository.ProcessedTransferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,7 @@ public class AccountService {
     private final AccountMapper accountMapper;
     private final AccountRepository accountRepository;
     private final ProcessedTransferRepository processedTransferRepository;
-    private final TransferEventProducer transferEventProducer;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public AccountResponse createAccount(AccountRequest request) {
@@ -98,7 +98,7 @@ public class AccountService {
         accountRepository.save(receiverAccount);
 
         processedTransferRepository.save(new ProcessedTransfer(request.transferId(), Instant.now()));
-        transferEventProducer.publishTransferResult(TransferResultEvent.completed(request.transferId()));
+        eventPublisher.publishEvent(TransferResultEvent.completed(request.transferId()));
     }
 
 }
