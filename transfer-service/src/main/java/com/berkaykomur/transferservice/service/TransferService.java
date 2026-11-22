@@ -4,10 +4,13 @@ import com.berkaykomur.transferservice.dto.CreateTransferRequest;
 import com.berkaykomur.transferservice.dto.TransferInitiatedEvent;
 import com.berkaykomur.transferservice.dto.TransferResponse;
 import com.berkaykomur.transferservice.dto.TransferResultEvent;
+import com.berkaykomur.transferservice.entity.AccountLedger;
+import com.berkaykomur.transferservice.entity.EntryType;
 import com.berkaykomur.transferservice.entity.Transfer;
 import com.berkaykomur.transferservice.entity.TransferStatus;
 import com.berkaykomur.transferservice.exception.SameAccountTransferException;
 import com.berkaykomur.transferservice.exception.TransferNotFoundException;
+import com.berkaykomur.transferservice.repository.AccountLedgerRepository;
 import com.berkaykomur.transferservice.repository.TransferRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +18,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -24,6 +29,9 @@ public class TransferService {
 
     private final TransferRepository transferRepository;
     private final ApplicationEventPublisher eventPublisher;
+
+    // Sınıf bağımlılıklarına ekle:
+    private final AccountLedgerRepository accountLedgerRepository;
 
     @Transactional
     public TransferResponse initiateTransfer(CreateTransferRequest request) {
@@ -41,6 +49,13 @@ public class TransferService {
         Transfer savedTransfer = transferRepository.save(transfer);
         log.info("Transfer record saved with status INITIATED: transferId={}", savedTransfer.getId());
 
+        recordTransferEntries(
+                savedTransfer.getId(),
+                savedTransfer.getSenderAccountId(),
+                savedTransfer.getReceiverAccountId(),
+                savedTransfer.getAmount()
+        );
+
         TransferInitiatedEvent event = new TransferInitiatedEvent(
                 savedTransfer.getId(),
                 savedTransfer.getSenderAccountId(),
@@ -49,9 +64,10 @@ public class TransferService {
         );
 
         eventPublisher.publishEvent(event);
-        log.info("Published TransferInitiatedEvent: transferId={}", savedTransfer.getId());
+
         return mapToResponse(savedTransfer);
     }
+
     @Transactional
     public void handleTransferResult(TransferResultEvent event) {
         log.info("Handling transfer result: transferId={}", event.transferId());
@@ -70,10 +86,36 @@ public class TransferService {
         } else {
             transfer.setStatus(TransferStatus.FAILED);
             transfer.setFailureReason(event.failureReason());
-            log.warn("Transfer {} updated to FAILED. Reason: {}", transfer.getId(), event.failureReason());
+
+            recordTransferEntries(
+                    transfer.getId(),
+                    transfer.getReceiverAccountId(),
+                    transfer.getSenderAccountId(),
+                    transfer.getAmount()
+            );
+            log.warn("Transfer {} updated to FAILED and compensating ledger entries recorded. Reason: {}",
+                    transfer.getId(), event.failureReason());
         }
 
         transferRepository.saveAndFlush(transfer);
+    }
+
+    private void recordTransferEntries(UUID transferId, UUID debitAccountId, UUID creditAccountId, BigDecimal amount) {
+        AccountLedger debitEntry = AccountLedger.builder()
+                .accountId(debitAccountId)
+                .transferId(transferId)
+                .amount(amount)
+                .entryType(EntryType.DEBIT)
+                .build();
+
+        AccountLedger creditEntry = AccountLedger.builder()
+                .accountId(creditAccountId)
+                .transferId(transferId)
+                .amount(amount)
+                .entryType(EntryType.CREDIT)
+                .build();
+
+        accountLedgerRepository.saveAll(List.of(debitEntry, creditEntry));
     }
 
     @Transactional(readOnly = true)
