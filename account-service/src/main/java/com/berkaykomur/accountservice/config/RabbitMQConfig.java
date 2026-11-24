@@ -29,6 +29,13 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.routing-key.transfer-dlq}")
     private String transferDlqRoutingKey;
 
+    @Value("${rabbitmq.queue.account-created}")
+    private String accountCreatedQueue;
+
+    @Value("${rabbitmq.routing-key.account-created}")
+    private String accountCreatedRoutingKey;
+
+
     @Bean
     public DirectExchange transferExchange() {
         return new DirectExchange(transferExchange);
@@ -60,6 +67,18 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(transferDlq())
                 .to(transferExchange())
                 .with(transferDlqRoutingKey);
+    }
+
+    @Bean
+    public Queue accountCreatedQueue() {
+        return QueueBuilder.durable(accountCreatedQueue).build();
+    }
+
+    @Bean
+    public Binding accountCreatedBinding() {
+        return BindingBuilder.bind(accountCreatedQueue())
+                .to(transferExchange())
+                .with(accountCreatedRoutingKey);
     }
 
     @Bean

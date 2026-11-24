@@ -1,6 +1,8 @@
 package com.berkaykomur.transferservice.repository;
 
 import com.berkaykomur.transferservice.entity.AccountLedger;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +13,7 @@ import java.util.UUID;
 
 public interface AccountLedgerRepository extends JpaRepository<AccountLedger, UUID> {
 
-    List<AccountLedger> findAllByAccountIdOrderByCreatedAtAsc(UUID accountId);
+    Page<AccountLedger> findAllByAccountId(UUID accountId, Pageable pageable);
 
     @Query("""
             SELECT COALESCE(SUM(
@@ -21,4 +23,6 @@ public interface AccountLedgerRepository extends JpaRepository<AccountLedger, UU
             WHERE l.accountId = :accountId
             """)
     BigDecimal calculateNetBalanceByAccountId(@Param("accountId") UUID accountId);
+
+    boolean existsByAccountIdAndTransferIdIsNull(UUID accountId);
 }

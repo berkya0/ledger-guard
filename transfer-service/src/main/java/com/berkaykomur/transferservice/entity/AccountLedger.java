@@ -24,7 +24,7 @@ public class AccountLedger {
     @Column(name = "account_id", nullable = false, updatable = false)
     private UUID accountId;
 
-    @Column(name = "transfer_id", nullable = false, updatable = false)
+    @Column(name = "transfer_id", updatable = false)
     private UUID transferId;
 
     @Column(nullable = false, updatable = false, precision = 19, scale = 2)

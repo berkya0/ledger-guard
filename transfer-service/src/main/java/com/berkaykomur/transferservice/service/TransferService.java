@@ -30,7 +30,6 @@ public class TransferService {
     private final TransferRepository transferRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    // Sınıf bağımlılıklarına ekle:
     private final AccountLedgerRepository accountLedgerRepository;
 
     @Transactional

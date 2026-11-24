@@ -1,9 +1,6 @@
 package com.berkaykomur.accountservice.service;
 
-import com.berkaykomur.accountservice.dto.AccountRequest;
-import com.berkaykomur.accountservice.dto.AccountResponse;
-import com.berkaykomur.accountservice.dto.TransferRequest;
-import com.berkaykomur.accountservice.dto.TransferResultEvent;
+import com.berkaykomur.accountservice.dto.*;
 import com.berkaykomur.accountservice.entity.Account;
 import com.berkaykomur.accountservice.entity.ProcessedTransfer;
 import com.berkaykomur.accountservice.exception.AccountAlreadyDeactivatedException;
@@ -20,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -38,6 +36,11 @@ public class AccountService {
         log.info("Creating account for owner: {} balance: {}", request.ownerName(), request.balance());
         Account newAccount =accountMapper.toEntity(request);
         Account savedAccount = accountRepository.saveAndFlush(newAccount);
+        if (savedAccount.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+            eventPublisher.publishEvent(
+                    new AccountCreatedEvent(savedAccount.getId(), savedAccount.getBalance())
+            );
+        }
         return accountMapper.toResponse(savedAccount);
     }
 
